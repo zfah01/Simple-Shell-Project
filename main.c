@@ -10,6 +10,7 @@ char *tokenList[50];
 
 int getNumberOfTokens(char *input);
 void printTokens(int noOfTokens);
+void clearInputStream(void);
 
 int main (void) {
 	// The operation of the shell should be as follows:
@@ -42,10 +43,16 @@ int main (void) {
 			continue;
 		}
 
+		//clear input stream if input is more than 512 characters
+		if (strchr(input, '\n') == NULL){//check exist newline
+			printf("ERROR: input contains to many characters. Input Max Length: 512 Characters\n");
+			clearInputStream();
+			continue;
+		}
+
 		//char *inputCopy = strdup(input); // copy input to new variable // Will be used when passing input to methods later on
 
 		int noOfTokens = getNumberOfTokens(input); // store number of tokens from input
-		printf("Number of Tokens: %d\n", noOfTokens); // Print Number of Tokens for Testing
 
 		if (noOfTokens == 0){ // return to start of loop if there is no tokens i.e Input only contains delimiters
 			continue;
@@ -54,13 +61,11 @@ int main (void) {
 		// If user entered exit with 0 zero arguments then break else error message
 		if((strcmp(tokenList[0], "exit") == 0) && noOfTokens == 1){
 			exit = true;
-			printf("\n");
 			break;
 		} else if ((strcmp(tokenList[0], "exit") == 0) && noOfTokens > 1){
 				printf("ERROR: 'exit' does not take any arguments\n");
 				continue;
 		}
-		
 		
 		printTokens(noOfTokens); // Print each token for testing
 
@@ -92,7 +97,12 @@ int getNumberOfTokens(char *input){
 }
 
 void printTokens(int noOfTokens){
+	printf("Number of Tokens: %d\n", noOfTokens);
 	for(int i = 0; i < noOfTokens; i++){
 			printf("tokenList[%d]: \"%s\"\n" , i, tokenList[i]);
 	}
+}
+
+void clearInputStream(void){
+	while ((getchar()) != '\n'); //loop until new line has been found
 }
