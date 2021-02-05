@@ -2,6 +2,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
 #define MAX_INPUT_LENGTH 512
 #define DELIMITERS " \t\n|><&;"
@@ -11,6 +13,7 @@ char *tokenList[50];
 int getNumberOfTokens(char *input);
 void printTokens(int noOfTokens);
 void clearInputStream(void);
+void executeExternalCommand(void);
 
 int main (void) {
 	// The operation of the shell should be as follows:
@@ -73,6 +76,7 @@ int main (void) {
 		// appropriate command from history or the aliased command respectively
 		// If command is built-in invoke appropriate function
 		// Else execute command as an external process
+		executeExternalCommand();
 
 	}
 	// End while
@@ -105,4 +109,21 @@ void printTokens(int noOfTokens){
 
 void clearInputStream(void){
 	while ((getchar()) != '\n'); //loop until new line has been found
+}
+
+void executeExternalCommand(void){
+	pid_t pid;
+
+	pid = fork();
+
+	if(pid < 0){
+		fprintf(stderr, "Fork Failed");
+		return;
+	} else if(pid == 0){
+		execvp(tokenList[0], tokenList);
+		perror(tokenList[0]);
+		exit(EXIT_FAILURE);
+	} else{
+		wait(NULL);
+	}
 }
