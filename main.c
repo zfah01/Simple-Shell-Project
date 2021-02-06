@@ -19,7 +19,16 @@ int main (void) {
 	// The operation of the shell should be as follows:
 	
 	// Find the user home directory from the environment
+	char* origin = getenv("PATH");
+	char* home = getenv("HOME");
+	char cwd[512];
 	// Set current working directory to user home directory
+	getcwd(cwd, sizeof(cwd));
+	printf("Current Working Dir: %s\n", cwd);
+	if(chdir(home) != 0){
+		printf("Set Directory Error");
+	}	
+
 	// Save the current path
 	// Load history
 	// Load aliases
@@ -40,6 +49,11 @@ int main (void) {
 		if (feof(stdin) != 0){
 			exit = true;
 			printf("\n");
+			getcwd(cwd, sizeof(cwd));
+			printf("Current Working Dir: %s\n", cwd);
+			setenv("PATH", origin, 1);
+			getcwd(cwd, sizeof(cwd));
+			printf("Current Working Dir: %s\n", cwd);
 			break;
 		}
 		if (strcmp(input, "\n") == 0){ // return to start of loop if there is no input
@@ -64,13 +78,18 @@ int main (void) {
 		// If user entered exit with 0 zero arguments then break else error message
 		if((strcmp(tokenList[0], "exit") == 0) && noOfTokens == 1){
 			exit = true;
+			getcwd(cwd, sizeof(cwd));
+			printf("Current Working Dir: %s\n", cwd);
+			chdir(origin);
+			getcwd(cwd, sizeof(cwd));
+			printf("Current Working Dir: %s\n", cwd);
 			break;
 		} else if ((strcmp(tokenList[0], "exit") == 0) && noOfTokens > 1){
 				printf("ERROR: 'exit' does not take any arguments\n");
 				continue;
 		}
 		
-		printTokens(noOfTokens); // Print each token for testing
+		//printTokens(noOfTokens); // Print each token for testing
 
 		// While the command is a history invocation or alias then replace it with the
 		// appropriate command from history or the aliased command respectively
