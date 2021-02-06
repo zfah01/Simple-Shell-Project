@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -8,12 +7,11 @@
 #define MAX_INPUT_LENGTH 512
 #define DELIMITERS " \t\n|><&;"
 
-char *tokenArray[50];
-
-int getNumberOfTokens(char *input);
-void printTokens(int noOfTokens);
+void tokeinze(char *input, char *tokens[]);
+int countTokens(char *tokens[]);
+void printTokens(int noOfTokens, char *tokens[]);
 void clearInputStream(void);
-void executeExternalCommand(void);
+void executeExternalCommand(char *tokens[]);
 
 int main (void) {
 	// The operation of the shell should be as follows:
@@ -24,11 +22,11 @@ int main (void) {
 	// Load history
 	// Load aliases
 
+	char *tokenArray[51];
 	char input[MAX_INPUT_LENGTH];
-	bool exit = false;
 	
 	// Do while shell has not terminated
-	while(!exit){
+	while(1){
 
 		// Display prompt
 		printf("> ");
@@ -38,12 +36,8 @@ int main (void) {
 		
 		// If statement to exit when <ctrl>-D pressed
 		if (feof(stdin) != 0){
-			exit = true;
 			printf("\n");
 			break;
-		}
-		if (strcmp(input, "\n") == 0){ // return to start of loop if there is no input
-			continue;
 		}
 
 		//clear input stream if input is more than 512 characters
@@ -55,31 +49,36 @@ int main (void) {
 
 		//char *inputCopy = strdup(input); // copy input to new variable // Will be used when passing input to methods later on
 
-		int noOfTokens = getNumberOfTokens(input); // store number of tokens from input
+		tokeinze(input, tokenArray); // tokenize input
+		int noOfTokens = countTokens(tokenArray); // store number of tokens from input
 
-		if (noOfTokens == 0){ // return to start of loop if there is no tokens i.e Input only contains delimiters
+		if (tokenArray[0] == NULL){ // return to start of loop if there is no tokens i.e Input only contains delimiters
 			continue;
 		}
 
 		// If user entered exit with 0 zero arguments then break else error message
-		if((strcmp(tokenArray[0], "exit") == 0) && noOfTokens == 1){
-			exit = true;
+		if((strcmp(tokenArray[0], "exit") == 0) && tokenArray[1] == NULL){
 			break;
-		} else if ((strcmp(tokenArray[0], "exit") == 0) && noOfTokens > 1){
+		} else if ((strcmp(tokenArray[0], "exit") == 0) && tokenArray[1] != NULL){
 				printf("ERROR: 'exit' does not take any arguments\n");
 				continue;
 		}
+		// Go to start of loop if there is more than 50 tokens
+		if(noOfTokens > 50){
+			printf("ERROR: too many arguments. Max 50 tokens\n");
+			continue;
+		}
 		
-		//printTokens(noOfTokens); // Print each token for testing
+		printTokens(noOfTokens, tokenArray); // Print each token for testing
 
 		// While the command is a history invocation or alias then replace it with the
 		// appropriate command from history or the aliased command respectively
 		// If command is built-in invoke appropriate function
 		// Else execute command as an external process
-		executeExternalCommand();
+		executeExternalCommand(tokenArray);
 
-	}
-	// End while
+	} // End while
+
 	// Save history
 	// Save aliases
 	// Restore original path
@@ -87,23 +86,30 @@ int main (void) {
 	return 0;
 }
 
-int getNumberOfTokens(char *input){
+void tokeinze(char *input, char *tokens[]){
 	char *token;
 	token = strtok(input, DELIMITERS);
-	int x = 0;
+	int index = 0;
 	while (token != NULL){
-		tokenArray[x] = token;
+		tokens[index] = token;
 		token = strtok(NULL, DELIMITERS);
-		x++;
+		index++;
 	}
-	tokenArray[x] = NULL;
-	return x;
+	tokens[index] = NULL;
 }
 
-void printTokens(int noOfTokens){
+int countTokens(char *tokens[]){
+	int i = 0;
+	while(tokens[i] != NULL){
+		i++;
+	}
+	return i;
+}
+
+void printTokens(int noOfTokens, char *tokens[]){
 	printf("Number of Tokens: %d\n", noOfTokens);
 	for(int i = 0; i < noOfTokens; i++){
-			printf("tokenArray[%d]: \"%s\"\n" , i, tokenArray[i]);
+			printf("tokenArray[%d]: \"%s\"\n" , i, tokens[i]);
 	}
 }
 
@@ -111,7 +117,7 @@ void clearInputStream(void){
 	while ((getchar()) != '\n'); //loop until new line has been found
 }
 
-void executeExternalCommand(void){
+void executeExternalCommand(char *tokens[]){
 	pid_t pid;
 
 	pid = fork();
@@ -120,8 +126,8 @@ void executeExternalCommand(void){
 		fprintf(stderr, "Fork Failed");
 		return;
 	} else if(pid == 0){
-		execvp(tokenArray[0], tokenArray);
-		perror(tokenArray[0]);
+		execvp(tokens[0], tokens);
+		perror(tokens[0]);
 		exit(EXIT_FAILURE);
 	} else{
 		wait(NULL);
