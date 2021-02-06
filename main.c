@@ -12,9 +12,12 @@ void tokeinze(char *input, char *tokens[]);
 int countTokens(char *tokens[]);
 void printTokens(int noOfTokens, char *tokens[]);
 void clearInputStream(void);
+void runCommand(char *tokens[]);
 void executeExternalCommand(char *tokens[]);
 void getDirectory(char dir[]);
 void restorePath(char *path);
+void getpathCommand(char *tokens[]);
+void setpathCommand(char *tokens[]);
 
 int main (void) {
 	// The operation of the shell should be as follows:
@@ -28,7 +31,7 @@ int main (void) {
 	// Set current working directory to user home directory
 	getDirectory(directory);
 	printf("Starting Directory: %s\n", directory);
-	chdir(home);
+	chdir(home); 
 	getDirectory(directory);
 	printf("Home Directory Set: %s\n", directory);
 	// Load history
@@ -89,7 +92,7 @@ int main (void) {
 		// appropriate command from history or the aliased command respectively
 		// If command is built-in invoke appropriate function
 		// Else execute command as an external process
-		executeExternalCommand(tokenArray);
+		runCommand(tokenArray);
 
 	} // End while
 
@@ -131,6 +134,16 @@ void clearInputStream(void){
 	while ((getchar()) != '\n'); //loop until new line has been found
 }
 
+void runCommand(char *tokens[]){
+	if(strcmp(tokens[0], "getpath") == 0){
+		getpathCommand(tokens);
+	} else if (strcmp(tokens[0], "setpath") == 0){
+		setpathCommand(tokens);
+	} else {
+		executeExternalCommand(tokens);
+	}
+}
+
 void executeExternalCommand(char *tokens[]){
 	pid_t pid;
 
@@ -149,11 +162,35 @@ void executeExternalCommand(char *tokens[]){
 }
 
 void getDirectory(char dir[]){
-	getcwd(dir, MAX_PATH_LENGTH);//add error
+	if(getcwd(dir, MAX_PATH_LENGTH) == NULL){
+		fprintf(stderr, "Error: Cannot get directory\n");
+	}
 }
 
 void restorePath(char *path){
 	printf("Path before restore: %s\n", getenv("PATH"));
-	setenv("PATH", path, 1); //add error
+	setenv("PATH", path, 1);
 	printf("Path after restore: %s\n", getenv("PATH"));
+}
+
+void getpathCommand(char *tokens[]){
+	if(tokens[1] == NULL){
+		printf("Path: %s\n", getenv("PATH"));
+	} else {
+		fprintf(stderr, "getpath: Takes zero arguments");
+	}
+}
+
+void setpathCommand(char *tokens[]){
+	if(tokens[1] == NULL){
+		printf("Error: setpath requires one argument\n");
+	} else if (tokens[2] != NULL ){
+		printf("Error: setpath only takes one argument\n");
+	} else {
+		if(setenv("PATH", tokens[1], 1) != 0){
+			perror(tokens[1]);
+		} else {
+			printf("Path set to: %s\n", getenv("PATH"));
+		}
+	}
 }
