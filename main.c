@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -7,28 +6,42 @@
 
 #define MAX_INPUT_LENGTH 512
 #define DELIMITERS " \t\n|><&;"
+#define MAX_PATH_LENGTH 512
 
-char *tokenList[50];
-
-int getNumberOfTokens(char *input);
-void printTokens(int noOfTokens);
+void tokeinze(char *input, char *tokens[]);
+int countTokens(char *tokens[]);
+void printTokens(int noOfTokens, char *tokens[]);
 void clearInputStream(void);
-void executeExternalCommand(void);
+void runCommand(char *tokens[]);
+void executeExternalCommand(char *tokens[]);
+void getDirectory(char dir[]);
+void restorePath(char *path);
+void getpathCommand(char *tokens[]);
+void setpathCommand(char *tokens[]);
 
 int main (void) {
 	// The operation of the shell should be as follows:
-	
-	// Find the user home directory from the environment
-	// Set current working directory to user home directory
+
 	// Save the current path
+	char *orginalPath = getenv("PATH");
+	printf("Original Path: %s\n", getenv("PATH"));
+	// Find the user home directory from the environment
+	char *home = getenv("HOME");
+	char directory[MAX_PATH_LENGTH];
+	// Set current working directory to user home directory
+	getDirectory(directory);
+	printf("Starting Directory: %s\n", directory);
+	chdir(home); 
+	getDirectory(directory);
+	printf("Home Directory Set: %s\n", directory);
 	// Load history
 	// Load aliases
 
+	char *tokenArray[51];
 	char input[MAX_INPUT_LENGTH];
-	bool exit = false;
 	
 	// Do while shell has not terminated
-	while(!exit){
+	while(1){
 
 		// Display prompt
 		printf("> ");
@@ -38,12 +51,9 @@ int main (void) {
 		
 		// If statement to exit when <ctrl>-D pressed
 		if (feof(stdin) != 0){
-			exit = true;
 			printf("\n");
+			restorePath(orginalPath);
 			break;
-		}
-		if (strcmp(input, "\n") == 0){ // return to start of loop if there is no input
-			continue;
 		}
 
 		//clear input stream if input is more than 512 characters
@@ -55,31 +65,37 @@ int main (void) {
 
 		//char *inputCopy = strdup(input); // copy input to new variable // Will be used when passing input to methods later on
 
-		int noOfTokens = getNumberOfTokens(input); // store number of tokens from input
+		tokeinze(input, tokenArray); // tokenize input
+		int noOfTokens = countTokens(tokenArray); // store number of tokens from input
 
-		if (noOfTokens == 0){ // return to start of loop if there is no tokens i.e Input only contains delimiters
+		if (tokenArray[0] == NULL){ // return to start of loop if there is no tokens i.e Input only contains delimiters
 			continue;
 		}
 
 		// If user entered exit with 0 zero arguments then break else error message
-		if((strcmp(tokenList[0], "exit") == 0) && noOfTokens == 1){
-			exit = true;
+		if((strcmp(tokenArray[0], "exit") == 0) && tokenArray[1] == NULL){
+			restorePath(orginalPath);
 			break;
-		} else if ((strcmp(tokenList[0], "exit") == 0) && noOfTokens > 1){
+		} else if ((strcmp(tokenArray[0], "exit") == 0) && tokenArray[1] != NULL){
 				printf("ERROR: 'exit' does not take any arguments\n");
 				continue;
 		}
+		// Go to start of loop if there is more than 50 tokens
+		if(noOfTokens > 50){
+			printf("ERROR: too many arguments. Max 50 tokens\n");
+			continue;
+		}
 		
-		printTokens(noOfTokens); // Print each token for testing
+		//printTokens(noOfTokens, tokenArray); // Print each token for testing
 
 		// While the command is a history invocation or alias then replace it with the
 		// appropriate command from history or the aliased command respectively
 		// If command is built-in invoke appropriate function
 		// Else execute command as an external process
-		executeExternalCommand();
+		runCommand(tokenArray);
 
-	}
-	// End while
+	} // End while
+
 	// Save history
 	// Save aliases
 	// Restore original path
@@ -87,23 +103,30 @@ int main (void) {
 	return 0;
 }
 
-int getNumberOfTokens(char *input){
+void tokeinze(char *input, char *tokens[]){
 	char *token;
 	token = strtok(input, DELIMITERS);
-	int x = 0;
+	int index = 0;
 	while (token != NULL){
-		tokenList[x] = token;
+		tokens[index] = token;
 		token = strtok(NULL, DELIMITERS);
-		x++;
+		index++;
 	}
-	tokenList[x] = NULL;
-	return x;
+	tokens[index] = NULL;
 }
 
-void printTokens(int noOfTokens){
+int countTokens(char *tokens[]){
+	int i = 0;
+	while(tokens[i] != NULL){
+		i++;
+	}
+	return i;
+}
+
+void printTokens(int noOfTokens, char *tokens[]){
 	printf("Number of Tokens: %d\n", noOfTokens);
 	for(int i = 0; i < noOfTokens; i++){
-			printf("tokenList[%d]: \"%s\"\n" , i, tokenList[i]);
+			printf("tokenArray[%d]: \"%s\"\n" , i, tokens[i]);
 	}
 }
 
@@ -111,7 +134,17 @@ void clearInputStream(void){
 	while ((getchar()) != '\n'); //loop until new line has been found
 }
 
-void executeExternalCommand(void){
+void runCommand(char *tokens[]){
+	if(strcmp(tokens[0], "getpath") == 0){
+		getpathCommand(tokens);
+	} else if (strcmp(tokens[0], "setpath") == 0){
+		setpathCommand(tokens);
+	} else {
+		executeExternalCommand(tokens);
+	}
+}
+
+void executeExternalCommand(char *tokens[]){
 	pid_t pid;
 
 	pid = fork();
@@ -120,10 +153,44 @@ void executeExternalCommand(void){
 		fprintf(stderr, "Fork Failed");
 		return;
 	} else if(pid == 0){
-		execvp(tokenList[0], tokenList);
-		perror(tokenList[0]);
+		execvp(tokens[0], tokens);
+		perror(tokens[0]);
 		exit(EXIT_FAILURE);
 	} else{
 		wait(NULL);
+	}
+}
+
+void getDirectory(char dir[]){
+	if(getcwd(dir, MAX_PATH_LENGTH) == NULL){
+		fprintf(stderr, "Error: Cannot get directory\n");
+	}
+}
+
+void restorePath(char *path){
+	printf("Path before restore: %s\n", getenv("PATH"));
+	setenv("PATH", path, 1);
+	printf("Path after restore: %s\n", getenv("PATH"));
+}
+
+void getpathCommand(char *tokens[]){
+	if(tokens[1] == NULL){
+		printf("Path: %s\n", getenv("PATH"));
+	} else {
+		fprintf(stderr, "getpath: Takes zero arguments");
+	}
+}
+
+void setpathCommand(char *tokens[]){
+	if(tokens[1] == NULL){
+		printf("Error: setpath requires one argument\n");
+	} else if (tokens[2] != NULL ){
+		printf("Error: setpath only takes one argument\n");
+	} else {
+		if(setenv("PATH", tokens[1], 1) != 0){
+			perror(tokens[1]);
+		} else {
+			printf("Path set to: %s\n", getenv("PATH"));
+		}
 	}
 }
