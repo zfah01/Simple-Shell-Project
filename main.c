@@ -187,10 +187,7 @@ void setpathCommand(char *tokens[]){
 	} else if (tokens[2] != NULL ){
 		printf("Error: setpath only takes one argument\n");
 	} else {
-		if(setenv("PATH", tokens[1], 1) != 0){
-			perror(tokens[1]);
-		} else {
-			printf("Path set to: %s\n", getenv("PATH"));
-		}
+		setenv("PATH", tokens[1], 1);
+		printf("Path set to: %s\n", getenv("PATH"));
 	}
 }
