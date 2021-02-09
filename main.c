@@ -18,33 +18,30 @@ void getDirectory(char dir[]);
 void restorePath(char *path);
 void getpathCommand(char *tokens[]);
 void setpathCommand(char *tokens[]);
+void cdCommand(char *tokens[]);
 
 int main (void) {
 	// The operation of the shell should be as follows:
 
 	// Save the current path
 	char *orginalPath = getenv("PATH");
-	printf("Original Path: %s\n", getenv("PATH"));
 	// Find the user home directory from the environment
 	char *home = getenv("HOME");
-	char directory[MAX_PATH_LENGTH];
 	// Set current working directory to user home directory
-	getDirectory(directory);
-	printf("Starting Directory: %s\n", directory);
-	chdir(home); 
-	getDirectory(directory);
-	printf("Home Directory Set: %s\n", directory);
+	chdir(home);
 	// Load history
 	// Load aliases
 
 	char *tokenArray[51];
 	char input[MAX_INPUT_LENGTH];
+	char directory[MAX_PATH_LENGTH];
 	
 	// Do while shell has not terminated
 	while(1){
 
 		// Display prompt
-		printf("> ");
+		getDirectory(directory);
+		printf("%s > ", directory);
 
 		// Read and parse user input
 		fgets(input, MAX_INPUT_LENGTH, stdin); // Read Input
@@ -52,7 +49,6 @@ int main (void) {
 		// If statement to exit when <ctrl>-D pressed
 		if (feof(stdin) != 0){
 			printf("\n");
-			restorePath(orginalPath);
 			break;
 		}
 
@@ -74,7 +70,6 @@ int main (void) {
 
 		// If user entered exit with 0 zero arguments then break else error message
 		if((strcmp(tokenArray[0], "exit") == 0) && tokenArray[1] == NULL){
-			restorePath(orginalPath);
 			break;
 		} else if ((strcmp(tokenArray[0], "exit") == 0) && tokenArray[1] != NULL){
 				printf("ERROR: 'exit' does not take any arguments\n");
@@ -99,6 +94,7 @@ int main (void) {
 	// Save history
 	// Save aliases
 	// Restore original path
+	restorePath(orginalPath);
 	// Exit
 	return 0;
 }
@@ -139,6 +135,8 @@ void runCommand(char *tokens[]){
 		getpathCommand(tokens);
 	} else if (strcmp(tokens[0], "setpath") == 0){
 		setpathCommand(tokens);
+	} else if (strcmp(tokens[0], "cd") == 0){
+		cdCommand(tokens);
 	} else {
 		executeExternalCommand(tokens);
 	}
@@ -168,9 +166,7 @@ void getDirectory(char dir[]){
 }
 
 void restorePath(char *path){
-	printf("Path before restore: %s\n", getenv("PATH"));
 	setenv("PATH", path, 1);
-	printf("Path after restore: %s\n", getenv("PATH"));
 }
 
 void getpathCommand(char *tokens[]){
@@ -187,10 +183,29 @@ void setpathCommand(char *tokens[]){
 	} else if (tokens[2] != NULL ){
 		printf("Error: setpath only takes one argument\n");
 	} else {
-		if(setenv("PATH", tokens[1], 1) != 0){
+		setenv("PATH", tokens[1], 1);
+		printf("Path set to: %s\n", getenv("PATH"));
+	}
+}
+
+void cdCommand(char *tokens[]){
+	char directory[MAX_PATH_LENGTH];
+	if(tokens[1] == NULL){
+		getDirectory(directory);
+		printf("Directory before command: %s\n", directory);
+		chdir(getenv("HOME"));
+		getDirectory(directory);
+		printf("Directory after command: %s\n", directory);
+	} else if (tokens[2] == NULL){
+	 	getDirectory(directory);
+		printf("Directory before command: %s\n", directory);
+		if(chdir(tokens[1]) != 0){
 			perror(tokens[1]);
 		} else {
-			printf("Path set to: %s\n", getenv("PATH"));
+			getDirectory(directory);
+			printf("Directory after command: %s\n", directory);
 		}
+	} else {
+		fprintf(stderr, "ERROR TOO MANY ARGUMENTS: the command 'cd' only takes one argument\n");
 	}
 }
