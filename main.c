@@ -25,21 +25,16 @@ int main (void) {
 
 	// Save the current path
 	char *orginalPath = getenv("PATH");
-	printf("Original Path: %s\n", getenv("PATH"));
 	// Find the user home directory from the environment
 	char *home = getenv("HOME");
-	char directory[MAX_PATH_LENGTH];
 	// Set current working directory to user home directory
-	getDirectory(directory);
-	printf("Starting Directory: %s\n", directory);
-	chdir(home); 
-	getDirectory(directory);
-	printf("Home Directory Set: %s\n", directory);
+	chdir(home);
 	// Load history
 	// Load aliases
 
 	char *tokenArray[51];
 	char input[MAX_INPUT_LENGTH];
+	char directory[MAX_PATH_LENGTH];
 	
 	// Do while shell has not terminated
 	while(1){
@@ -171,9 +166,7 @@ void getDirectory(char dir[]){
 }
 
 void restorePath(char *path){
-	printf("Path before restore: %s\n", getenv("PATH"));
 	setenv("PATH", path, 1);
-	printf("Path after restore: %s\n", getenv("PATH"));
 }
 
 void getpathCommand(char *tokens[]){
