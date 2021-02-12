@@ -212,10 +212,10 @@ void cdCommand(char *tokens[]){
 		printf("Directory after command: %s\n", directory);
 	} else if (tokens[2] == NULL){
 	 	getDirectory(directory);
-		printf("Directory before command: %s\n", directory);
 		if(chdir(tokens[1]) != 0){
 			perror(tokens[1]);
 		} else {
+			printf("Directory before command: %s\n", directory);
 			getDirectory(directory);
 			printf("Directory after command: %s\n", directory);
 		}
