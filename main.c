@@ -12,13 +12,15 @@ void tokeinze(char *input, char *tokens[]);
 int countTokens(char *tokens[]);
 void printTokens(int noOfTokens, char *tokens[]);
 void clearInputStream(void);
-void runCommand(char *tokens[]);
+void runCommand(char *tokens[], char *history[], int *counter);
 void executeExternalCommand(char *tokens[]);
 void getDirectory(char dir[]);
 void restorePath(char *path);
 void getpathCommand(char *tokens[]);
 void setpathCommand(char *tokens[]);
 void cdCommand(char *tokens[]);
+void addToHistory(char *input, char *history[], int *counter);
+void printHistory(char *history[], int *counter);
 
 int main (void) {
 	// The operation of the shell should be as follows:
@@ -30,6 +32,12 @@ int main (void) {
 	// Set current working directory to user home directory
 	chdir(home);
 	// Load history
+	char *history[20];
+	for(int i = 0; i <= 20; i++){
+		history[i] = malloc(sizeof(char) * MAX_INPUT_LENGTH);
+		history[i] = "\0";
+	}
+	int counter = 0;
 	// Load aliases
 
 	char *tokenArray[51];
@@ -59,8 +67,8 @@ int main (void) {
 			continue;
 		}
 
-		//char *inputCopy = strdup(input); // copy input to new variable // Will be used when passing input to methods later on
-
+		char *inputCopy = strdup(input); // copy input to new variable // Will be used when passing input to methods later on
+		printf("inputcopy: %s", inputCopy);
 		tokeinze(input, tokenArray); // tokenize input
 		int noOfTokens = countTokens(tokenArray); // store number of tokens from input
 
@@ -85,9 +93,10 @@ int main (void) {
 
 		// While the command is a history invocation or alias then replace it with the
 		// appropriate command from history or the aliased command respectively
+		addToHistory(inputCopy, history, &counter);
 		// If command is built-in invoke appropriate function
 		// Else execute command as an external process
-		runCommand(tokenArray);
+		runCommand(tokenArray, history, &counter);
 
 	} // End while
 
@@ -96,6 +105,9 @@ int main (void) {
 	// Restore original path
 	restorePath(orginalPath);
 	// Exit
+	/*for(int i = 0; i <= 20; i++){
+		free(history[i]);
+	}*/
 	return 0;
 }
 
@@ -130,13 +142,15 @@ void clearInputStream(void){
 	while ((getchar()) != '\n'); //loop until new line has been found
 }
 
-void runCommand(char *tokens[]){
+void runCommand(char *tokens[], char *history[], int *counter){
 	if(strcmp(tokens[0], "getpath") == 0){
 		getpathCommand(tokens);
 	} else if (strcmp(tokens[0], "setpath") == 0){
 		setpathCommand(tokens);
 	} else if (strcmp(tokens[0], "cd") == 0){
 		cdCommand(tokens);
+	} else if (strcmp(tokens[0], "history") == 0){
+		printHistory(history, counter);
 	} else {
 		executeExternalCommand(tokens);
 	}
@@ -207,5 +221,32 @@ void cdCommand(char *tokens[]){
 		}
 	} else {
 		fprintf(stderr, "ERROR TOO MANY ARGUMENTS: the command 'cd' only takes one argument\n");
+	}
+}
+
+void addToHistory(char *input, char *history[], int *counter){
+	history[*counter] = strdup(input);
+	*counter = ((*counter)+1) % 20;
+}
+
+void printHistory(char *history[], int *counter){
+	int histNum = 1;
+	int i = *counter;
+	/*while(1){
+		if(strcmp(history[i], "\0") != 0){
+			printf("%d %s", histNum, history[i]);
+		}
+		i = (i+1) % 20;
+		histNum++;
+		if(i == *counter){
+			break;
+		}
+	}*/
+	for(int x = 1; x <= 20; x++){
+		if(strcmp(history[x], "\0") != 0){
+		printf("%d %s", x, history[x]);
+		} else {
+			break;
+		}
 	}
 }
