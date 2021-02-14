@@ -3,24 +3,30 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <ctype.h>
 
 #define MAX_INPUT_LENGTH 512
+#define MAX_TOKENS 51
 #define DELIMITERS " \t\n|><&;"
 #define MAX_PATH_LENGTH 512
+#define MAX_HISTORY_SIZE 20
 
 void tokeinze(char *input, char *tokens[]);
 int countTokens(char *tokens[]);
-void printTokens(int noOfTokens, char *tokens[]);
+void printTokens(char *tokens[]);
 void clearInputStream(void);
-void runCommand(char *tokens[], char *history[], int *counter);
+void runCommand(char *tokens[], char *history[], int counter, int historyHead);
 void executeExternalCommand(char *tokens[]);
 void getDirectory(char dir[]);
 void restorePath(char *path);
 void getpathCommand(char *tokens[]);
 void setpathCommand(char *tokens[]);
 void cdCommand(char *tokens[]);
-void addToHistory(char *input, char *history[], int *counter);
-void printHistory(char *history[], int *counter);
+void addToHistory(char *input, char *history[], int *counter, int *historyHead);
+void printHistory(char *history[], int counter, int historyHead);
+int getHistoryCallIndex(char *history[], int counter, char *tokens[], int historyHead);
+int isHistoryCmdValid(char *str);
+int getHistorySize(char *history[]);
 
 int main (void) {
 	// The operation of the shell should be as follows:
@@ -32,15 +38,12 @@ int main (void) {
 	// Set current working directory to user home directory
 	chdir(home);
 	// Load history
-	char *history[20];
-	for(int i = 0; i <= 20; i++){
-		history[i] = malloc(sizeof(char) * MAX_INPUT_LENGTH);
-		history[i] = "\0";
-	}
+	char *history[MAX_HISTORY_SIZE];
 	int counter = 0;
+	int historyHead = 0;
 	// Load aliases
 
-	char *tokenArray[51];
+	char *tokenArray[MAX_TOKENS];
 	char input[MAX_INPUT_LENGTH];
 	char directory[MAX_PATH_LENGTH];
 	
@@ -68,7 +71,6 @@ int main (void) {
 		}
 
 		char *inputCopy = strdup(input); // copy input to new variable // Will be used when passing input to methods later on
-		printf("inputcopy: %s", inputCopy);
 		tokeinze(input, tokenArray); // tokenize input
 		int noOfTokens = countTokens(tokenArray); // store number of tokens from input
 
@@ -89,14 +91,29 @@ int main (void) {
 			continue;
 		}
 		
-		//printTokens(noOfTokens, tokenArray); // Print each token for testing
+		//printTokens(tokenArray); // Print each token for testing
 
 		// While the command is a history invocation or alias then replace it with the
 		// appropriate command from history or the aliased command respectively
-		addToHistory(inputCopy, history, &counter);
+		if(strcspn(tokenArray[0], "!") == 0){ // if history invocation 
+			int historyIndex = getHistoryCallIndex(history, counter, tokenArray, historyHead); // get index for history array. returns -1 if failed
+			if (historyIndex != -1){
+				printf("History Call = \"%s\"\n", history[historyIndex]); // print cmd from history
+				char *historyInput = strdup(history[historyIndex]); // store cmd from history
+				printf("Printing Tokens BEFORE history invocation: \n");
+				printTokens(tokenArray); // Print each token for testing
+				tokeinze(historyInput, tokenArray); // tokenize cmd from history
+				printf("Printing Tokens AFTER history invocation: \n");
+				printTokens(tokenArray); // Print each token for testing
+			} else {
+				continue;
+			}
+		} else {
+			addToHistory(inputCopy, history, &counter, &historyHead);
+		}
 		// If command is built-in invoke appropriate function
 		// Else execute command as an external process
-		runCommand(tokenArray, history, &counter);
+		runCommand(tokenArray, history, counter, historyHead);
 
 	} // End while
 
@@ -105,9 +122,6 @@ int main (void) {
 	// Restore original path
 	restorePath(orginalPath);
 	// Exit
-	/*for(int i = 0; i <= 20; i++){
-		free(history[i]);
-	}*/
 	return 0;
 }
 
@@ -131,7 +145,8 @@ int countTokens(char *tokens[]){
 	return i;
 }
 
-void printTokens(int noOfTokens, char *tokens[]){
+void printTokens(char *tokens[]){
+	int noOfTokens = countTokens(tokens);
 	printf("Number of Tokens: %d\n", noOfTokens);
 	for(int i = 0; i < noOfTokens; i++){
 			printf("tokenArray[%d]: \"%s\"\n" , i, tokens[i]);
@@ -142,7 +157,7 @@ void clearInputStream(void){
 	while ((getchar()) != '\n'); //loop until new line has been found
 }
 
-void runCommand(char *tokens[], char *history[], int *counter){
+void runCommand(char *tokens[], char *history[], int counter, int historyHead){
 	if(strcmp(tokens[0], "getpath") == 0){
 		getpathCommand(tokens);
 	} else if (strcmp(tokens[0], "setpath") == 0){
@@ -150,7 +165,11 @@ void runCommand(char *tokens[], char *history[], int *counter){
 	} else if (strcmp(tokens[0], "cd") == 0){
 		cdCommand(tokens);
 	} else if (strcmp(tokens[0], "history") == 0){
-		printHistory(history, counter);
+		if(tokens[1] == NULL){
+			printHistory(history, counter, historyHead);
+		} else {
+			fprintf(stderr, "%s: does not take arguments\n", tokens[0]);
+		}
 	} else {
 		executeExternalCommand(tokens);
 	}
@@ -203,50 +222,102 @@ void setpathCommand(char *tokens[]){
 }
 
 void cdCommand(char *tokens[]){
-	char directory[MAX_PATH_LENGTH];
 	if(tokens[1] == NULL){
-		getDirectory(directory);
-		printf("Directory before command: %s\n", directory);
 		chdir(getenv("HOME"));
-		getDirectory(directory);
-		printf("Directory after command: %s\n", directory);
 	} else if (tokens[2] == NULL){
-	 	getDirectory(directory);
-		printf("Directory before command: %s\n", directory);
 		if(chdir(tokens[1]) != 0){
 			perror(tokens[1]);
-		} else {
-			getDirectory(directory);
-			printf("Directory after command: %s\n", directory);
 		}
 	} else {
 		fprintf(stderr, "ERROR TOO MANY ARGUMENTS: the command 'cd' only takes one argument\n");
 	}
 }
 
-void addToHistory(char *input, char *history[], int *counter){
+void addToHistory(char *input, char *history[], int *counter, int *historyHead){
+	if (history[19] != NULL && *historyHead == 0){ // if the last element is not null and the head 0 set head to 1
+		*historyHead = 1;
+	} else if (*historyHead >= 1){ // continue to add to history head each time once 20 elements have been stored
+		*historyHead = (*historyHead+1) % MAX_HISTORY_SIZE;
+	}
+	if(input[strlen(input)-1] == '\n' ){ // if last char in input is \n remove it
+    input[strlen(input)-1] = '\0';
+	}
 	history[*counter] = strdup(input);
-	*counter = ((*counter)+1) % 20;
+	*counter = (*counter+1) % MAX_HISTORY_SIZE;
 }
 
-void printHistory(char *history[], int *counter){
+void printHistory(char *history[], int counter, int historyHead){
+
 	int histNum = 1;
-	int i = *counter;
-	/*while(1){
-		if(strcmp(history[i], "\0") != 0){
-			printf("%d %s", histNum, history[i]);
-		}
-		i = (i+1) % 20;
+	int index = historyHead;
+	do {
+		printf("%d %s\n", histNum, history[index]);
 		histNum++;
-		if(i == *counter){
-			break;
-		}
-	}*/
-	for(int x = 1; x <= 20; x++){
-		if(strcmp(history[x], "\0") != 0){
-		printf("%d %s", x, history[x]);
+		index = (index+1) % MAX_HISTORY_SIZE;
+	} while (index != counter);
+
+}
+
+int getHistoryCallIndex(char *history[], int counter, char *tokens[], int historyHead){
+	int index;
+	int historySize = getHistorySize(history);
+	if(history[0] == NULL){
+		fprintf(stderr, "ERROR: history is empty\n");
+		return -1;
+	}else if(tokens[1] != NULL){
+		fprintf(stderr, "%s: does not take any arguments\n", tokens[0]);
+		return -1;
+	} else if (strcmp(tokens[0], "!!") == 0){
+		index = (historyHead+(historySize-1)) % MAX_HISTORY_SIZE;
+	} else if(isHistoryCmdValid(tokens[0]) == 0){
+		int x;
+		sscanf(tokens[0], "!%d", &x);
+		if(x < 0){
+			x = abs(x); // change negative to positve easier to read. a - (x) instead of a + (-x)
+			if(x >= historySize){
+				fprintf(stderr ,"ERROR: the subtraction from history must be less than the history size: %d\n", historySize);
+				return -1;
+			}
+			counter = (historySize-(1%historySize) + counter)%historySize; //set counter to the index of the last filled index in history instead of the next one to fill
+			index = (historySize-(x%historySize) + counter)%historySize; // calculate index for circular array with subtraction from last index
 		} else {
-			break;
+			if(x > 0 && x <= MAX_HISTORY_SIZE) {
+			index = (historyHead+(x-1)) % MAX_HISTORY_SIZE;
+			} else {
+				index = x - 1;
+			}
+		}
+	} else{
+		fprintf(stderr, "%s: not understood\n", tokens[0]);
+		return-1;
+	}
+
+	if(index < 0 || index >= MAX_HISTORY_SIZE){
+		fprintf(stderr, "ERROR: history number must be between 1 and %d\n", MAX_HISTORY_SIZE);
+		return-1;
+	} else if(history[index] == NULL){
+		fprintf(stderr, "ERROR: %s event not found\n", tokens[0]);
+		return-1;
+	}
+	return index;
+}
+
+int isHistoryCmdValid(char *str){
+	if(strlen(str) < 2){
+		return 1;
+	}
+	for(int i = 1; i < strlen(str); str++){
+		if(!((str[i] == '-' && i == 1) || (isdigit(str[i]) != 0))){
+			return 1;
 		}
 	}
+	return 0;
+}
+
+int getHistorySize(char *history[]){
+	int size = 0;
+	while(size < MAX_HISTORY_SIZE && history[size] != NULL){
+		size++;
+	}
+	return size;
 }
