@@ -10,6 +10,7 @@
 #define DELIMITERS " \t\n|><&;"
 #define MAX_PATH_LENGTH 512
 #define MAX_HISTORY_SIZE 20
+#define HISTORY_FILE_NAME ".hist_list"
 
 void tokeinze(char *input, char *tokens[]);
 int countTokens(char *tokens[]);
@@ -27,6 +28,8 @@ void printHistory(char *history[], int counter, int historyHead);
 int getHistoryCallIndex(char *history[], int counter, char *tokens[], int historyHead);
 int isHistoryCmdValid(char *str);
 int getHistorySize(char *history[]);
+void loadHistory(char *history[], int *counter, int *historyHead);
+void saveHistory(char *history[], int counter, int historyHead);
 
 int main (void) {
 	// The operation of the shell should be as follows:
@@ -41,6 +44,7 @@ int main (void) {
 	char *history[MAX_HISTORY_SIZE];
 	int counter = 0;
 	int historyHead = 0;
+	loadHistory(history, &counter, &historyHead);
 	// Load aliases
 
 	char *tokenArray[MAX_TOKENS];
@@ -98,13 +102,8 @@ int main (void) {
 		if(strcspn(tokenArray[0], "!") == 0){ // if history invocation 
 			int historyIndex = getHistoryCallIndex(history, counter, tokenArray, historyHead); // get index for history array. returns -1 if failed
 			if (historyIndex != -1){
-				printf("History Call = \"%s\"\n", history[historyIndex]); // print cmd from history
 				char *historyInput = strdup(history[historyIndex]); // store cmd from history
-				printf("Printing Tokens BEFORE history invocation: \n");
-				printTokens(tokenArray); // Print each token for testing
 				tokeinze(historyInput, tokenArray); // tokenize cmd from history
-				printf("Printing Tokens AFTER history invocation: \n");
-				printTokens(tokenArray); // Print each token for testing
 			} else {
 				continue;
 			}
@@ -118,6 +117,8 @@ int main (void) {
 	} // End while
 
 	// Save history
+	chdir(home);
+	saveHistory(history, counter, historyHead);
 	// Save aliases
 	// Restore original path
 	restorePath(orginalPath);
@@ -320,4 +321,53 @@ int getHistorySize(char *history[]){
 		size++;
 	}
 	return size;
+}
+
+void loadHistory(char *history[], int *counter, int *historyHead){
+
+	FILE *fptr;
+	fptr = fopen(HISTORY_FILE_NAME, "r");
+
+	if(fptr == NULL){
+		return;
+	}
+
+	int counter2 = *counter;
+	int histHead2 = *historyHead;
+
+	if(fptr != NULL){
+		char line[MAX_INPUT_LENGTH];
+		while(fgets(line, MAX_INPUT_LENGTH, fptr) != NULL){
+			if(line[strlen(line)-1] == '\n' ){ // if last char in input is \n remove it
+    			line[strlen(line)-1] = '\0';
+			}
+			addToHistory(line, history, &counter2, &histHead2);
+		}
+	}
+	
+	*counter = counter2;
+	*historyHead = histHead2;
+
+	fclose(fptr);
+
+}
+
+void saveHistory(char *history[], int counter, int historyHead){
+
+	if(history[0] == NULL){
+		return;
+	}
+
+	FILE *fptr = fopen(HISTORY_FILE_NAME, "w");
+	if(fptr != NULL){
+		int histNum = 1;
+		int index = historyHead;
+		do {
+		fprintf(fptr, "%s\n", history[index]);
+		histNum++;
+		index = (index+1) % MAX_HISTORY_SIZE;
+		} while (index != counter);
+	}
+	fclose(fptr);
+
 }
