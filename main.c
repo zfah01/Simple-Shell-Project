@@ -332,8 +332,8 @@ void loadHistory(char *history[], int *counter, int *historyHead){
 		return;
 	}
 
-	int counter2 = *counter;
-	int histHead2 = *historyHead;
+	int counterCopy = *counter;
+	int historyHeadCopy = *historyHead;
 
 	if(fptr != NULL){
 		char line[MAX_INPUT_LENGTH];
@@ -341,12 +341,12 @@ void loadHistory(char *history[], int *counter, int *historyHead){
 			if(line[strlen(line)-1] == '\n' ){ // if last char in input is \n remove it
     			line[strlen(line)-1] = '\0';
 			}
-			addToHistory(line, history, &counter2, &histHead2);
+			addToHistory(line, history, &counterCopy, &historyHeadCopy);
 		}
 	}
 	
-	*counter = counter2;
-	*historyHead = histHead2;
+	*counter = counterCopy;
+	*historyHead = historyHeadCopy;
 
 	fclose(fptr);
 
