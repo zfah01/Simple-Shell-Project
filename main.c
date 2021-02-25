@@ -11,12 +11,14 @@
 #define MAX_PATH_LENGTH 512
 #define MAX_HISTORY_SIZE 20
 #define HISTORY_FILE_NAME ".hist_list"
+#define MAX_ALIAS_SIZE 10
+#define MAX_ALIAS_ELEMENTS 2
 
-void tokeinze(char *input, char *tokens[], char *aliasArray[10][2]);
+void tokeinze(char *input, char *tokens[], char *aliasArray[MAX_ALIAS_SIZE][MAX_ALIAS_ELEMENTS]);
 int countTokens(char *tokens[]);
 void printTokens(char *tokens[]);
 void clearInputStream(void);
-void runCommand(char *tokens[], char *history[], int counter, int historyHead, char *aliasArray[10][2]);
+void runCommand(char *tokens[], char *history[], int counter, int historyHead, char *aliasArray[MAX_ALIAS_SIZE][MAX_ALIAS_ELEMENTS]);
 void executeExternalCommand(char *tokens[]);
 void getDirectory(char dir[]);
 void restorePath(char *path);
@@ -30,10 +32,10 @@ int isHistoryCmdValid(char *str);
 int getHistorySize(char *history[]);
 void loadHistory(char *history[], int *counter, int *historyHead);
 void saveHistory(char *history[], int counter, int historyHead);
-void addAlias(char *tokens[], char *aliasArray[10][2]);
-void removeAlias(char *tokens[], char *aliasArray[10][2]);
-void printAliases(char *aliasArray[10][2]);
-int isAlias(char *token, char *aliasArray[10][2]);
+void addAlias(char *tokens[], char *aliasArray[MAX_ALIAS_SIZE][MAX_ALIAS_ELEMENTS]);
+void removeAlias(char *tokens[], char *aliasArray[MAX_ALIAS_SIZE][MAX_ALIAS_ELEMENTS]);
+void printAliases(char *aliasArray[MAX_ALIAS_SIZE][MAX_ALIAS_ELEMENTS]);
+int isAlias(char *token, char *aliasArray[MAX_ALIAS_SIZE][MAX_ALIAS_ELEMENTS]);
 
 int main (void) {
 	// The operation of the shell should be as follows:
@@ -50,7 +52,7 @@ int main (void) {
 	int historyHead = 0;
 	loadHistory(history, &counter, &historyHead);
 	// Load aliases
-	char *aliasArray[10][2];
+	char *aliasArray[MAX_ALIAS_SIZE][MAX_ALIAS_ELEMENTS];
 
 	char *tokenArray[MAX_TOKENS];
 	char input[MAX_INPUT_LENGTH];
@@ -131,7 +133,7 @@ int main (void) {
 	return 0;
 }
 
-void tokeinze(char *input, char *tokens[], char *aliasArray[10][2]){
+void tokeinze(char *input, char *tokens[], char *aliasArray[MAX_ALIAS_SIZE][MAX_ALIAS_ELEMENTS]){
 	char *token;
 	token = strtok(input, DELIMITERS);
 	int index = 0;
@@ -169,7 +171,7 @@ void clearInputStream(void){
 	while ((getchar()) != '\n'); //loop until new line has been found
 }
 
-void runCommand(char *tokens[], char *history[], int counter, int historyHead, char *aliasArray[10][2]){
+void runCommand(char *tokens[], char *history[], int counter, int historyHead, char *aliasArray[MAX_ALIAS_SIZE][MAX_ALIAS_ELEMENTS]){
 	if(strcmp(tokens[0], "getpath") == 0){
 		getpathCommand(tokens);
 	} else if (strcmp(tokens[0], "setpath") == 0){
@@ -391,13 +393,13 @@ void saveHistory(char *history[], int counter, int historyHead){
 
 }
 
-void addAlias(char *tokens[], char *aliasArray[10][2]){
+void addAlias(char *tokens[], char *aliasArray[MAX_ALIAS_SIZE][MAX_ALIAS_ELEMENTS]){
 
 	if (tokens[2] == NULL){
 		fprintf(stderr, "ERROR: alias \"%s\" requires a command\n", tokens[1]);
 	} else if (tokens[3] == NULL){
 		// this loop checks if the alias exists then updates
-		for(int i = 0; i < 10; i++){
+		for(int i = 0; i < MAX_ALIAS_SIZE; i++){
 			if((aliasArray[i][0] != NULL) && (strcmp(aliasArray[i][0], tokens[1]) == 0)){
 				char *temp = strdup(aliasArray[i][1]);
 				aliasArray[i][0] = strdup(tokens[1]);
@@ -407,7 +409,7 @@ void addAlias(char *tokens[], char *aliasArray[10][2]){
 			}
 		}
 		// this loop finds an empty space in the aliasArray and adds the alias
-		for(int i = 0; i < 10; i++){
+		for(int i = 0; i < MAX_ALIAS_SIZE; i++){
 			if(aliasArray[i][0] == NULL){
 				aliasArray[i][0] = strdup(tokens[1]);
 				aliasArray[i][1] = strdup(tokens[2]);
@@ -423,11 +425,11 @@ void addAlias(char *tokens[], char *aliasArray[10][2]){
 
 }
 
-void removeAlias(char *tokens[], char *aliasArray[10][2]){
+void removeAlias(char *tokens[], char *aliasArray[MAX_ALIAS_SIZE][MAX_ALIAS_ELEMENTS]){
 	if(tokens[1] == NULL){
 		fprintf(stderr, "unalias: requires one argument\n");
 	} else if (tokens[2] == NULL){
-		for(int i = 0; i < 10; i++){
+		for(int i = 0; i < MAX_ALIAS_SIZE; i++){
 			if((aliasArray[i][0] != NULL) && (strcmp(aliasArray[i][1], tokens[1]) == 0)){
 				aliasArray[i][0] = NULL;
 				aliasArray[i][1] = NULL;
@@ -440,11 +442,11 @@ void removeAlias(char *tokens[], char *aliasArray[10][2]){
 	}
 }
 
-void printAliases(char *aliasArray[10][2]){
+void printAliases(char *aliasArray[MAX_ALIAS_SIZE][MAX_ALIAS_ELEMENTS]){
 
 	int aliasPrinted = 0;
 
-	for(int i = 0; i < 10; i++){
+	for(int i = 0; i < MAX_ALIAS_SIZE; i++){
 		if(aliasArray[i][0] != NULL && aliasArray[i][1] != NULL) {
 			printf("alias %s='%s'\n", aliasArray[i][0], aliasArray[i][1]);
 			aliasPrinted = 1;
@@ -457,9 +459,9 @@ void printAliases(char *aliasArray[10][2]){
 
 }
 
-int isAlias(char *token, char *aliasArray[10][2]){
+int isAlias(char *token, char *aliasArray[MAX_ALIAS_SIZE][MAX_ALIAS_ELEMENTS]){
 
-	for(int i = 0; i < 10; i++){
+	for(int i = 0; i < MAX_ALIAS_SIZE; i++){
 		if((aliasArray[i][0] != NULL) && (strcmp(aliasArray[i][0], token) == 0)) {
 			return i;
 		}
