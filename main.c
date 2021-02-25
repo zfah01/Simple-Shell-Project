@@ -12,11 +12,11 @@
 #define MAX_HISTORY_SIZE 20
 #define HISTORY_FILE_NAME ".hist_list"
 
-void tokeinze(char *input, char *tokens[]);
+void tokeinze(char *input, char *tokens[], char *aliasArray[10][2]);
 int countTokens(char *tokens[]);
 void printTokens(char *tokens[]);
 void clearInputStream(void);
-void runCommand(char *tokens[], char *history[], int counter, int historyHead);
+void runCommand(char *tokens[], char *history[], int counter, int historyHead, char *aliasArray[10][2]);
 void executeExternalCommand(char *tokens[]);
 void getDirectory(char dir[]);
 void restorePath(char *path);
@@ -30,6 +30,10 @@ int isHistoryCmdValid(char *str);
 int getHistorySize(char *history[]);
 void loadHistory(char *history[], int *counter, int *historyHead);
 void saveHistory(char *history[], int counter, int historyHead);
+void addAlias(char *tokens[], char *aliasArray[10][2]);
+void removeAlias(char *tokens[], char *aliasArray[10][2]);
+void printAliases(char *aliasArray[10][2]);
+int isAlias(char *token, char *aliasArray[10][2]);
 
 int main (void) {
 	// The operation of the shell should be as follows:
@@ -46,6 +50,7 @@ int main (void) {
 	int historyHead = 0;
 	loadHistory(history, &counter, &historyHead);
 	// Load aliases
+	char *aliasArray[10][2];
 
 	char *tokenArray[MAX_TOKENS];
 	char input[MAX_INPUT_LENGTH];
@@ -75,7 +80,7 @@ int main (void) {
 		}
 
 		char *inputCopy = strdup(input); // copy input to new variable // Will be used when passing input to methods later on
-		tokeinze(input, tokenArray); // tokenize input
+		tokeinze(input, tokenArray, aliasArray); // tokenize input
 		int noOfTokens = countTokens(tokenArray); // store number of tokens from input
 
 		if (tokenArray[0] == NULL){ // return to start of loop if there is no tokens i.e Input only contains delimiters
@@ -103,7 +108,7 @@ int main (void) {
 			int historyIndex = getHistoryCallIndex(history, counter, tokenArray, historyHead); // get index for history array. returns -1 if failed
 			if (historyIndex != -1){
 				char *historyInput = strdup(history[historyIndex]); // store cmd from history
-				tokeinze(historyInput, tokenArray); // tokenize cmd from history
+				tokeinze(historyInput, tokenArray, aliasArray); // tokenize cmd from history
 			} else {
 				continue;
 			}
@@ -112,7 +117,7 @@ int main (void) {
 		}
 		// If command is built-in invoke appropriate function
 		// Else execute command as an external process
-		runCommand(tokenArray, history, counter, historyHead);
+		runCommand(tokenArray, history, counter, historyHead, aliasArray);
 
 	} // End while
 
@@ -126,11 +131,17 @@ int main (void) {
 	return 0;
 }
 
-void tokeinze(char *input, char *tokens[]){
+void tokeinze(char *input, char *tokens[], char *aliasArray[10][2]){
 	char *token;
 	token = strtok(input, DELIMITERS);
 	int index = 0;
+	int aliasIndex = -1;
 	while (token != NULL){
+		aliasIndex = isAlias(token, aliasArray);
+		if(aliasIndex >= 0){
+			printf("replacing: \"%s\" with: \"%s\"\n", token, aliasArray[aliasIndex][1]);
+			token = strdup(aliasArray[aliasIndex][1]);
+		}
 		tokens[index] = token;
 		token = strtok(NULL, DELIMITERS);
 		index++;
@@ -158,7 +169,7 @@ void clearInputStream(void){
 	while ((getchar()) != '\n'); //loop until new line has been found
 }
 
-void runCommand(char *tokens[], char *history[], int counter, int historyHead){
+void runCommand(char *tokens[], char *history[], int counter, int historyHead, char *aliasArray[10][2]){
 	if(strcmp(tokens[0], "getpath") == 0){
 		getpathCommand(tokens);
 	} else if (strcmp(tokens[0], "setpath") == 0){
@@ -171,6 +182,14 @@ void runCommand(char *tokens[], char *history[], int counter, int historyHead){
 		} else {
 			fprintf(stderr, "%s: does not take arguments\n", tokens[0]);
 		}
+	} else if (strcmp(tokens[0], "alias") == 0){
+		if (tokens[1] == NULL){
+			printAliases(aliasArray);
+		} else {
+			addAlias(tokens, aliasArray);
+		} 
+	} else if (strcmp(tokens[0], "unalias") == 0){
+		removeAlias(tokens, aliasArray);
 	} else {
 		executeExternalCommand(tokens);
 	}
@@ -369,5 +388,83 @@ void saveHistory(char *history[], int counter, int historyHead){
 		} while (index != counter);
 	}
 	fclose(fptr);
+
+}
+
+void addAlias(char *tokens[], char *aliasArray[10][2]){
+
+	if (tokens[2] == NULL){
+		fprintf(stderr, "ERROR: alias \"%s\" requires a command\n", tokens[1]);
+	} else if (tokens[3] == NULL){
+		// this loop checks if the alias exists then updates
+		for(int i = 0; i < 10; i++){
+			if((aliasArray[i][0] != NULL) && (strcmp(aliasArray[i][0], tokens[1]) == 0)){
+				char *temp = strdup(aliasArray[i][1]);
+				aliasArray[i][0] = strdup(tokens[1]);
+				aliasArray[i][1] = strdup(tokens[2]);
+				printf("alias updated: \"%s\", command: \"%s\", previous command: \"%s\"\n", aliasArray[i][0], aliasArray[i][1], temp);
+				return;
+			}
+		}
+		// this loop finds an empty space in the aliasArray and adds the alias
+		for(int i = 0; i < 10; i++){
+			if(aliasArray[i][0] == NULL){
+				aliasArray[i][0] = strdup(tokens[1]);
+				aliasArray[i][1] = strdup(tokens[2]);
+				printf("alias: \"%s\" command: \"%s\"\n", aliasArray[i][0], aliasArray[i][1]);
+				return;
+			}
+		}
+		fprintf(stderr, "ERROR: no more aliases can be set\n");
+	} else {
+		fprintf(stderr, "ERROR: alias can take a max of three arguments\n");
+		fprintf(stderr, "Suggestions: \"alias\" or \"alias <name> <command>\"\n");
+	}
+
+}
+
+void removeAlias(char *tokens[], char *aliasArray[10][2]){
+	if(tokens[1] == NULL){
+		fprintf(stderr, "unalias: requires one argument\n");
+	} else if (tokens[2] == NULL){
+		for(int i = 0; i < 10; i++){
+			if((aliasArray[i][0] != NULL) && (strcmp(aliasArray[i][1], tokens[1]) == 0)){
+				aliasArray[i][0] = NULL;
+				aliasArray[i][1] = NULL;
+				return;
+			}
+		}
+		fprintf(stderr, "unalias: %s: not found\n", tokens[1]);
+	} else {
+		fprintf(stderr, "unalias: requires only one argument\n");
+	}
+}
+
+void printAliases(char *aliasArray[10][2]){
+
+	int aliasPrinted = 0;
+
+	for(int i = 0; i < 10; i++){
+		if(aliasArray[i][0] != NULL && aliasArray[i][1] != NULL) {
+			printf("alias %s='%s'\n", aliasArray[i][0], aliasArray[i][1]);
+			aliasPrinted = 1;
+		}
+	}
+
+	if(aliasPrinted == 0){
+	fprintf(stderr, "ERROR: no aliases have been set up\n");
+	}
+
+}
+
+int isAlias(char *token, char *aliasArray[10][2]){
+
+	for(int i = 0; i < 10; i++){
+		if((aliasArray[i][0] != NULL) && (strcmp(aliasArray[i][0], token) == 0)) {
+			return i;
+		}
+	}
+
+	return -1;
 
 }
