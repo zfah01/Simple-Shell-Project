@@ -201,6 +201,26 @@ void tokeinze(char *input, char *tokens[], alias aliasArray[MAX_ALIAS_SIZE])
             token = strtok(NULL, DELIMITERS);
         }
         tokens[index] = NULL;
+
+        int substitutionCounter = 0;
+
+        while((tokensCanBeReplaced(tokens, aliasArray) == 0) && (substitutionCounter <= 11)){
+            index = 0;
+            while(tokens[index] != NULL){
+                if(isHistoryCmdValid(tokens[index]) == 0){
+                    // replace with history invocation
+                } else {
+                    for(int i = 0; i < MAX_ALIAS_SIZE; i++){
+                        if(strcmp(aliasArray[i].aliasKey, tokens[index]) == 0){
+                            //replace with alias
+                        }
+                    }
+                }
+            }
+        }
+
+        // if statement for substitution counter
+
     }
 }
 
@@ -746,4 +766,24 @@ void saveAliases(alias aliasArray[MAX_ALIAS_SIZE])
     }
 
     fclose(fptr);
+}
+
+// return 0 if any tokens are a history invocation or an alias key
+int tokensCanBeReplaced(char *tokens[], alias aliasArray[MAX_ALIAS_SIZE]){
+    int index = 0;
+    while(tokens[index] != NULL){
+        if(isHistoryCmdValid(tokens[index]) == 0){
+            return 0;
+        } else {
+            for(int i = 0; i < MAX_ALIAS_SIZE; i++){
+                if(strcmp(aliasArray[i].aliasKey, tokens[index]) == 0){
+                    return 0;
+                }
+            }
+        }
+        index++;
+    }
+
+    return 1;
+    
 }
