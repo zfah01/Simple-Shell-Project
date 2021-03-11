@@ -25,7 +25,7 @@ typedef struct ALIAS {
     int noOfCommands;
 } alias;
 
-void tokeinze(char *input, char *tokens[], alias aliasArray[MAX_ALIAS_SIZE]);
+void tokeinze(char *input, char *tokens[], alias aliasArray[MAX_ALIAS_SIZE], int recurrsionDepth);
 int countTokens(char *tokens[]);
 void printTokens(char *tokens[]);
 void clearInputStream(void);
@@ -48,9 +48,9 @@ void addAlias(char *tokens[], alias aliasArray[MAX_ALIAS_SIZE]);
 void removeAlias(char *tokens[], alias aliasArray[MAX_ALIAS_SIZE]);
 void printAliases(alias aliasArray[MAX_ALIAS_SIZE]);
 int isAlias(char *token, alias aliasArray[MAX_ALIAS_SIZE]);
-int findAliasesRecursivley(char *token, alias aliasArray[MAX_ALIAS_SIZE], int aliasIndex, int recurrsionDepth);
 void loadAliases(alias aliasArray[MAX_ALIAS_SIZE]);
 void saveAliases(alias aliasArray[MAX_ALIAS_SIZE]);
+int checkAliasExistInTokens(char *tokens[], alias aliasArray[MAX_ALIAS_SIZE]);
 
 int main(void) {
     // The operation of the shell should be as follows:
@@ -98,7 +98,7 @@ int main(void) {
         }
 
         char *inputCopy = strdup(input);          // copy input to new variable // Will be used when passing input to methods later on
-        tokeinze(input, tokenArray, aliasArray);  // tokenize input
+        tokeinze(input, tokenArray, aliasArray, 0);  // tokenize input
         int noOfTokens = countTokens(tokenArray); // store number of tokens from input
 
         if (tokenArray[0] == NULL) { // return to start of loop if there is no tokens i.e Input only contains delimiters
@@ -127,7 +127,7 @@ int main(void) {
             int historyIndex = getHistoryCallIndex(history, counter, tokenArray, historyHead); // get index for history array. returns -1 if failed
             if (historyIndex != -1) {
                 char *historyInput = strdup(history[historyIndex]); // store cmd from history
-                tokeinze(historyInput, tokenArray, aliasArray);     // tokenize cmd from history
+                tokeinze(historyInput, tokenArray, aliasArray, 0);     // tokenize cmd from history
             }
             else {
                 continue;
@@ -153,7 +153,14 @@ int main(void) {
     return 0;
 }
 
-void tokeinze(char *input, char *tokens[], alias aliasArray[MAX_ALIAS_SIZE]) {
+void tokeinze(char *input, char *tokens[], alias aliasArray[MAX_ALIAS_SIZE], int recurrsionDepth) {
+
+    if(recurrsionDepth == MAX_ALIAS_RECURSION_DEPTH) {
+        tokens[0] = NULL;
+        fprintf(stderr, "ERROR: alias recurrsion depth reached\n");
+        return;
+    }
+
     char *token;
     token = strtok(input, DELIMITERS);
     int index = 0;
@@ -170,39 +177,32 @@ void tokeinze(char *input, char *tokens[], alias aliasArray[MAX_ALIAS_SIZE]) {
         while (token != NULL) {
             aliasIndex = isAlias(token, aliasArray);
             if (aliasIndex >= 0) {
-                int aliasIndexFromCmd = -1;
                 for (int i = 0; i < aliasArray[aliasIndex].noOfCommands; i++) {
-                    aliasIndexFromCmd = isAlias(aliasArray[aliasIndex].aliasCommands[i], aliasArray);
-                    if(aliasIndexFromCmd >= 0){
-                        for (int j = 0; j < aliasArray[aliasIndexFromCmd].noOfCommands; j++){
-                            tokens[index] = aliasArray[aliasIndexFromCmd].aliasCommands[j];
-                            index++;
-                        }
-                    }else {
-                        tokens[index] = aliasArray[aliasIndex].aliasCommands[i];
-                        index++;
-                    }
-
-                    
+                    tokens[index] = aliasArray[aliasIndex].aliasCommands[i];
+                    index++;
                 }
             }
             else {
                 tokens[index] = token;
                 index++;
             }
-
-            if(aliasIndex == ALIAS_RECUSRION_DEPTH_TRIGGERED){
-                fprintf(stderr, "ERROR: alias recurrsion depth reached\n");
-                index = 0;
-                break;
-            }
-
             token = strtok(NULL, DELIMITERS);
         }
         tokens[index] = NULL;
 
+        if(checkAliasExistInTokens(tokens, aliasArray) == 0){
+            index = 0;
+            char concatenatedString[MAX_INPUT_LENGTH] = "\0";
+            while (tokens[index] != NULL) {
+                strcat(concatenatedString, tokens[index]);
+                strcat(concatenatedString, " ");
+                index++;
+            }
+            tokeinze(concatenatedString, tokens, aliasArray, recurrsionDepth + 1);
+        }
     }
 }
+
 
 int countTokens(char *tokens[]) {
     int i = 0;
@@ -569,34 +569,11 @@ int isAlias(char *token, alias aliasArray[MAX_ALIAS_SIZE]) {
 
     for (int i = 0; i < MAX_ALIAS_SIZE; i++) {
         if ((strcmp(aliasArray[i].aliasKey, "\0") != 0) && (strcmp(aliasArray[i].aliasKey, token) == 0)) {
-            if(aliasArray[i].noOfCommands == 1){
-                return findAliasesRecursivley(aliasArray[i].aliasCommands[0], aliasArray, i, 0); // 0 as starting recursion depth
-            }
             return i;
         }
     }
 
     return -1;
-}
-
-int findAliasesRecursivley(char *token, alias aliasArray[MAX_ALIAS_SIZE], int aliasIndex, int recurrsionDepth){
-
-    if(recurrsionDepth == MAX_ALIAS_RECURSION_DEPTH) {
-        return ALIAS_RECUSRION_DEPTH_TRIGGERED;
-    }
-
-    for (int i = 0; i < MAX_ALIAS_SIZE; i++) {
-        if ((strcmp(aliasArray[i].aliasKey, "\0") != 0) && (strcmp(aliasArray[i].aliasKey, token) == 0)) {
-            if(aliasArray[i].noOfCommands == 1){
-                return findAliasesRecursivley(aliasArray[i].aliasCommands[0], aliasArray, i, recurrsionDepth + 1);
-            }
-            return i;
-        }
-    }
-
-    return aliasIndex;
-
-
 }
 
 void loadAliases(alias aliasArray[MAX_ALIAS_SIZE]) {
@@ -658,4 +635,17 @@ void saveAliases(alias aliasArray[MAX_ALIAS_SIZE]) {
     }
 
     fclose(fptr);
+}
+
+int checkAliasExistInTokens(char *tokens[], alias aliasArray[MAX_ALIAS_SIZE]){
+    int index = 0;
+
+    while(tokens[index] != NULL){
+        if(isAlias(tokens[index], aliasArray) >= 0){
+            return 0;
+        }
+        index++;
+    }
+
+    return 1;
 }
