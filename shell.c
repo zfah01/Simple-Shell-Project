@@ -39,11 +39,9 @@
 #define MAX_ALIAS_KEY_LENGTH 30
 #define MAX_ALIAS_TOKENS 49
 #define MAX_ALIAS_SIZE 10
-#define MAX_ALIAS_ELEMENTS 2
 #define ALIAS_FILE_NAME ".aliases"
 #define MAX_ALIAS_RECURSION_DEPTH 10
 #define INITIAL_ALIAS_RECURSION_DEPTH 0
-#define ALIAS_RECUSRION_DEPTH_TRIGGERED -5
 
 // define alias struct
 typedef struct ALIAS {
@@ -55,7 +53,6 @@ typedef struct ALIAS {
 // function definitions
 void tokeinze(char *input, char *tokens[], alias aliasArray[MAX_ALIAS_SIZE], int recurrsionDepth);
 int countTokens(char *tokens[]);
-void printTokens(char *tokens[]);
 void clearInputStream(void);
 void runCommand(char *tokens[], char *history[], int historyCounter, int historyHead, alias aliasArray[MAX_ALIAS_SIZE]);
 void executeExternalCommand(char *tokens[]);
@@ -123,7 +120,7 @@ int main(void) {
 
         //clear input stream if input is more than 512 characters
         if (strchr(input, '\n') == NULL) { //check if newline exists 
-            printf("ERROR: input contains too many characters. Input Max Length: 512 Characters\n");
+            fprintf(stderr, "ERROR: input contains too many characters. Input Max Length: 512 Characters\n");
             clearInputStream();
             continue;
         }
@@ -141,24 +138,22 @@ int main(void) {
             break;
         }
         else if ((strcmp(tokenArray[0], "exit") == 0) && tokenArray[1] != NULL) {
-            printf("ERROR: 'exit' does not take any arguments\n");
+            fprintf(stderr, "ERROR: 'exit' does not take any arguments\n");
             continue;
         }
 
         // Go to start of loop if there is more than 50 tokens
         if (noOfTokens > 50) {
-            printf("ERROR: too many arguments. Max 50 tokens\n");
+            fprintf(stderr, "ERROR: too many arguments. Max 50 tokens\n");
             continue;
         }
-
-        printTokens(tokenArray); // Print each token for testing
 
         // check if input was history invocation
         if (strcspn(tokenArray[0], "!") == 0) {
             int historyIndex = getHistoryCallIndex(history, historyCounter, tokenArray, historyHead); // get index for history array. returns -1 if failed
             if (historyIndex != -1) {
                 char *historyInput = strdup(history[historyIndex]); // store cmd from history
-                tokeinze(historyInput, tokenArray, aliasArray, INITIAL_ALIAS_RECURSION_DEPTH);     // tokenize cmd from history
+                tokeinze(historyInput, tokenArray, aliasArray, INITIAL_ALIAS_RECURSION_DEPTH); // tokenize cmd from history
             }
             else {
                 continue;
@@ -193,7 +188,7 @@ int main(void) {
 void tokeinze(char *input, char *tokens[], alias aliasArray[MAX_ALIAS_SIZE], int recurrsionDepth) {
 
     //exit if the max recurrsive depth is reached
-    if(recurrsionDepth == MAX_ALIAS_RECURSION_DEPTH) {
+    if (recurrsionDepth == MAX_ALIAS_RECURSION_DEPTH) {
         tokens[0] = NULL;
         fprintf(stderr, "ERROR: alias recurrsion depth reached\n");
         return;
@@ -231,7 +226,7 @@ void tokeinze(char *input, char *tokens[], alias aliasArray[MAX_ALIAS_SIZE], int
         tokens[index] = NULL; // NULL terminate the array
 
         // check if aliases still exist
-        if(checkAliasExistInTokens(tokens, aliasArray) == 0){
+        if (checkAliasExistInTokens(tokens, aliasArray) == 0){
             index = 0;
             // concatenate the tokens back into one string
             char concatenatedString[MAX_INPUT_LENGTH] = "\0";
@@ -255,19 +250,6 @@ int countTokens(char *tokens[]) {
         i++;
     }
     return i;
-}
-
-/**
- * Fuction to print out the tokens in an array of strings.
- * Used for testing
- */
-void printTokens(char *tokens[]) {
-    int noOfTokens = countTokens(tokens);
-    printf("Number of Tokens: %d\n", noOfTokens);
-    for (int i = 0; i < noOfTokens; i++)
-    {
-        printf("tokenArray[%d]: \"%s\"\n", i, tokens[i]);
-    }
 }
 
 /**
@@ -376,10 +358,10 @@ void getpathCommand(char *tokens[]) {
 void setpathCommand(char *tokens[]) {
     // setpath command must be two tokens long include the command
     if (tokens[1] == NULL) {
-        printf("Error: setpath requires one argument\n");
+        fprintf(stderr, "Error: setpath requires only one argument\n");
     }
     else if (tokens[2] != NULL) {
-        printf("Error: setpath only takes one argument\n");
+        fprintf(stderr, "Error: setpath only takes one argument\n");
     }
     else {
         setenv("PATH", tokens[1], 1); // function to set the path variable
@@ -461,11 +443,10 @@ int getHistoryCallIndex(char *history[], int historyCounter, char *tokens[], int
         sscanf(tokens[0], "!%d", &x); // read the int from the history invocation
         if (x < 0) {
             x = abs(x); // change negative to positve easier to read. a - (x) instead of a + (-x)
-            if (x >= historySize) {
-                fprintf(stderr, "ERROR: the subtraction from history must be less than the history size: %d\n", historySize);
+            if (x > historySize) {
+                fprintf(stderr, "ERROR: the subtraction from history must be less than or equal to the history size: %d\n", historySize);
                 return -1;
             }
-            historyCounter = (historySize - (1 % historySize) + historyCounter) % historySize; //set historyCounter to the index of the last filled index in history instead of the next one to fill
             index = (historySize - (x % historySize) + historyCounter) % historySize;   // calculate index for circular array with subtraction from last index
         }
         else {
@@ -483,7 +464,7 @@ int getHistoryCallIndex(char *history[], int historyCounter, char *tokens[], int
     }
 
     if (index < 0 || index >= MAX_HISTORY_SIZE) {
-        fprintf(stderr, "ERROR: history number must be between 1 and %d\n", MAX_HISTORY_SIZE);
+        fprintf(stderr, "ERROR: history invocation must be between !1 and !%d\n", MAX_HISTORY_SIZE);
         return -1;
     }
     else if (history[index] == NULL) { // print error if the history element has not yet been filled
@@ -534,7 +515,7 @@ void loadHistory(char *history[], int *historyCounter, int *historyHead) {
         return;
     }
 
-    int historyCounterCopy = *historyCounter;
+    int historyCounterCopy = *historyCounter; // added variable copies so that value is kept at the end of the method
     int historyHeadCopy = *historyHead;
 
     if (fptr != NULL) {
@@ -580,7 +561,7 @@ void saveHistory(char *history[], int historyCounter, int historyHead) {
  * Function initialises the key of the aliases to the null terminator
  */
 void initialiseAliasKeys(alias aliasArray[MAX_ALIAS_SIZE]) {
-
+    // aliasKey == "\0" indicates empty alias (no alias at index in aliasArray)
     for (int i = 0; i < MAX_ALIAS_SIZE; i++) {
         strcpy(aliasArray[i].aliasKey, "\0");
     }
@@ -749,7 +730,7 @@ void loadAliases(alias aliasArray[MAX_ALIAS_SIZE]) {
 /**
  * Function saves alias into the ".aliases" file
  * File format:
- * <alias key> <command>
+ * <alias key> <command tokens>
  */
 void saveAliases(alias aliasArray[MAX_ALIAS_SIZE]) {
 
@@ -784,8 +765,8 @@ int checkAliasExistInTokens(char *tokens[], alias aliasArray[MAX_ALIAS_SIZE]){
     int index = 0;
 
     // loop through the tokens array and check if that token is an alias
-    while(tokens[index] != NULL){
-        if(isAlias(tokens[index], aliasArray) >= 0){
+    while (tokens[index] != NULL){
+        if (isAlias(tokens[index], aliasArray) >= 0){
             return 0;
         }
         index++;
