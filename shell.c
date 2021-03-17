@@ -6,10 +6,10 @@
  * commands and supports aliases both of these features are persistent.
  * 
  * Complie:
- * gcc main.c -pedantic -Wall -o main
+ * gcc shell.c -pedantic -Wall -o shell
  * 
  * Run:
- * ./main
+ * ./shell
  * 
  * CS210 2020/21 Semester 2 Cousrswork
  * 
