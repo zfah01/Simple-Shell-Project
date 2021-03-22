@@ -3,9 +3,9 @@
  * 
  * A simple shell program written in C that executes internal and external commands.
  * Making use of built-in Linux commands. The shell also keeps a history of user
- * commands and supports aliases both of these features are persistent.
+ * commands and supports aliases, both of these features are persistent.
  * 
- * Complie:
+ * Compile:
  * gcc shell.c -pedantic -Wall -o shell
  * 
  * Run:
